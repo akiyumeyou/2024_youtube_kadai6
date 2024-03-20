@@ -14,10 +14,11 @@
 
 <header>
   
-  <button id="sortBtnDate">新着順</button>
+<button id="sortBtnDate">新着順</button>
 <button id="sortBtnLikes">いいね</button>
 <h1>POTZ動画交流のページ</h1>
-<div id="user-name">ユーザー名</div>
+<a href="#aside">投稿</a>
+<div id="displayName">ユーザー名</div>
 </header>
 <main>
 
@@ -73,7 +74,13 @@ function formatTimestamp(date) {
 }
 
 let msg = {}; // msg変数を初期化
-
+    const displayName = localStorage.getItem('displayName');
+    if (displayName) {
+        document.getElementById('displayName').textContent = displayName;
+    } else {
+        // displayNameがない場合は何らかの処理を行う
+        console.log('displayNameがありません。');
+    }
 
 $("#send").on("click", async function() {
     const youtubeLink = $("#youtubeLink").val();
