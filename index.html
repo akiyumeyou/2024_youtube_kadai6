@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>シニア動画交流</title>
+<link rel="stylesheet" href="css/keiji.css">
+<link rel="icon" type="image/x-icon" href="img/favicon.ico">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+</head>
+
+
+<body>
+
+<header>
+  
+  <button id="sortBtnDate">新着順</button>
+<button id="sortBtnLikes">いいね</button>
+<h1>POTZ動画交流のページ</h1>
+<div id="user-name">ユーザー名</div>
+</header>
+<main>
+
+ <div id="output">
+    <div class="video-container">
+    <iframe src="https://www.youtube.com/embed/VIDEO_ID_HERE" frameborder="0" allowfullscreen></iframe>
+    <div class="video-info">
+      <p>動画の説明</p>
+      <div class="btn-group">
+        <button class="like-btn">いいね</button>
+        <button class="delete-btn">削除</button>
+      </div>
+    </div>
+    </div>
+    </div>
+
+ <div id="aside">
+    <h2>投稿フォーム</h2>
+      <textarea id="text" class="message" placeholder="動画の説明"></textarea><br>
+      <select id="category">
+        <option value="support">サポート会員用</option>
+        <option value="senior" selected>シニア会員用</option>
+        <option value="series">シリーズ</option>
+      </select><br>
+      <input type="text" id="youtubeLink" placeholder="YouTubeリンクをここに貼り付け"><br>
+      <button id="send">送信</button>
+    </div>
+ </div>
+</main>
+<footer id="footer">
+    <img src="img/logo.png" alt="potz" class="logo"> 
+    <a href="https://potz.jp/">https://potz.jp/</a>
+</footer>
+
+
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getDatabase, ref, push, set, get,update, remove, onChildAdded, onChildChanged, onChildRemoved  } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import firebaseConfig from "./js/firebaseK.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const dbRef = ref(db, "keiji");
+
+function formatTimestamp(date) {
+    const y = date.getFullYear();
+    const m = ('0' + (date.getMonth() + 1)).slice(-2);
+    const d = ('0' + date.getDate()).slice(-2);
+    const hour = ('0' + date.getHours()).slice(-2);
+    const min = ('0' + date.getMinutes()).slice(-2);
+    return `${y}/${m}/${d} ${hour}:${min}`;
+}
+
+let msg = {}; // msg変数を初期化
+
+
+$("#send").on("click", async function() {
+    const youtubeLink = $("#youtubeLink").val();
+    const comment = $("#text").val();
+    const category = $("#category").val(); // カテゴリーを取得
+    const now = new Date();
+
+     msg = {
+        timestamp: formatTimestamp(now), 
+        youtubeLink: youtubeLink,
+        likeCount: 0, // いいね数の初期値を0に設定
+        comment: comment,
+        category: category // メッセージオブジェクトにカテゴリーを追加
+    };
+    await push(dbRef, msg);
+    $("#text").val('');
+    $("#youtubeLink").val('');
+    $("#category").val('senior'); // カテゴリーをデフォルト値にリセット
+});
+
+// メッセージ読み込みと表示
+function loadMessages() {
+    $("#output").empty();
+    onChildAdded(dbRef, function(snapshot) {
+        
+            const key = snapshot.key;
+            const msg = snapshot.val();
+            const videoId = extractVideoID(msg.youtubeLink);
+            if (videoId) {
+                const content = `
+                    <div class="video-container" id="message-${key}">
+                        <iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>
+                        <p>${msg.comment || ''}</p>
+                        <span>${msg.timestamp}</span> <!-- タイムスタンプの表示方法を適宜修正 -->
+                        <button class="like-btn" data-id="${key}">いいね ${msg.likeCount || 0}</button>
+                        <button class="delete-btn" data-id="${key}">削除</button>
+                    </div>
+                `;
+                $("#output").prepend(content);
+            }
+        });
+    
+        // メッセージ更新時の処理を追加
+        onChildChanged(dbRef, function(snapshot) {
+            const key = snapshot.key;
+            const updatedMsg = snapshot.val();
+            const updatedLikes = updatedMsg.likeCount || 0;
+            $(`#message-${key} .like-btn`).html(`いいね ${updatedLikes}`);
+        });
+    
+        // メッセージ削除時の処理を追加
+        onChildRemoved(dbRef, function(snapshot) {
+            const key = snapshot.key;
+            $(`#message-${key}`).remove();
+        });
+    }
+    
+    // いいねボタンのイベントハンドラ
+    $(document).on('click', '.like-btn', function() {
+        const key = $(this).data('id');
+        const likesRef = ref(db, `keiji/${key}`);
+        get(likesRef).then((snapshot) => {
+            if (snapshot.exists()) {
+                const currentLikes = snapshot.val().likeCount || 0;
+                update(likesRef, { likeCount: currentLikes + 1 });
+            }
+        }).catch((error) => {
+          console.error("いいね数の更新中にエラーが発生しました: ", error);
+      });
+    });
+    
+    $(document).on('click', '.delete-btn', function() {
+      const messageId = $(this).data('id');
+      if (confirm("完全に削除となり戻せませんがよろしいですか？")) {
+          const messageRef = ref(db, 'keiji/' + messageId);
+          remove(messageRef).then(() => {
+              // メッセージをページから削除
+              $(`#message-${messageId}`).remove();
+              alert("動画が削除されました。");
+          }).catch((error) => {
+              console.error("削除エラー:", error);
+              alert("削除に失敗しました。");
+          });
+      }
+    });
+    
+    function extractVideoID(url) {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = url.match(regExp);
+      return (match && match[2].length === 11) ? match[2] : null;
+    }
+    
+
+    
+    // 日付順にソート
+    $("#sortBtnDate").on("click", function() {
+        sortMessagesByDate();
+    });
+    
+    // いいねの多い順にソート
+    $("#sortBtnLikes").on("click", function() {
+        sortMessagesByLikes();
+    });
+    
+
+    // 日付順にメッセージをソートする関数
+    function sortMessagesByDate() {
+        const sortedMessages = $("#output .video-container").toArray().sort((a, b) => {
+            const timestampA = new Date($(a).find("span").text());
+            const timestampB = new Date($(b).find("span").text());
+            return timestampB - timestampA;
+        });
+        $("#output").empty().append(sortedMessages);
+    }
+    
+    // いいねの多い順にメッセージをソートする関数
+    function sortMessagesByLikes() {
+        const sortedMessages = $("#output .video-container").toArray().sort((a, b) => {
+            const likesA = parseInt($(a).find(".like-btn").text().split(" ")[1]);
+            const likesB = parseInt($(b).find(".like-btn").text().split(" ")[1]);
+            return likesB - likesA;
+        });
+        $("#output").empty().append(sortedMessages);
+    }
+    
+
+
+loadMessages();
+</script>
+</body>
+</html>
+
