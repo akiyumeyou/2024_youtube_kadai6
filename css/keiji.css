@@ -5,7 +5,7 @@ body {
     background-image: url('../img/keiji.jpg'); /* 背景画像を追加 */
     background-size: cover;
     margin: 0;
-    padding: 0;
+    padding-bottom: 60px; 
 
    
 }
@@ -14,7 +14,7 @@ header {
     color: #084e10;
     padding: 10px;
     display: flex;
-    justify-content: space-between;
+   
     align-items: center;
 
 }
@@ -33,7 +33,7 @@ main{
     cursor: pointer;
   }
 
-  #user-name {
+  #displayName {
     margin-left: auto;
     padding:  10px;
   }
@@ -63,8 +63,9 @@ main{
 
 button{
     background-color: green;
+    font-size: 24px; 
     color: white;
-    margin: 10px;
+    margin: 7px;
   }
 button#send {
     background-color: green;
@@ -115,7 +116,7 @@ input[type="text"], textarea {
 
 
 button:hover {
-    background-color: #449d44;
+    background-color: #f7a026;
 }
 
 .like-btn, .delete-btn {
